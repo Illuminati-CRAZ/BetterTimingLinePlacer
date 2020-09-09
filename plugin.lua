@@ -18,7 +18,15 @@ TIMING_POINT_OFFSET = -1000000 --allows for 2.5k timing lines using 600 BPM
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
 function initialize()
+    local offset = map.TimingPoints[1].StartTime
+    local signature = 4 --default 4 because I don't feel like actually dealing with it
+    local msptl = 60000 / map.TimingPoints[1].Bpm * signature
+    while offset > -3000 do
+        offset = offset - msptl
+    end
+
     actions.PlaceTimingPoint(utils.CreateTimingPoint(TIMING_POINT_OFFSET, BPM))
+    actions.PlaceTimingPoint(utils.CreateTimingPoint(offset, map.TimingPoints[1].Bpm))
     memory.write(INITIAL_SET_UP_MEMORY_OFFSET, 1)
     memory.write(CURRENT_FREE_TIMING_POINT_OFFSET, 1)
 
@@ -43,7 +51,7 @@ end
 function generateTeleportSV(origin, destination, increment)
     local svs = {}
     table.insert(svs, utils.CreateScrollVelocity(origin - increment, (destination - origin) / increment))
-    table.insert(svs, utils.CreateScrollVelocity(origin, -(destination - origin) / increment))
+    table.insert(svs, utils.CreateScrollVelocity(origin, -(destination - origin) / increment + 2))
     table.insert(svs, utils.CreateScrollVelocity(origin + increment, 1)) --technically speaking not even really needed
     return(svs)
 end
@@ -242,6 +250,30 @@ function getScrollVelocityAtExactly(time)
     end
 end
 
+function getStartTimesFromSelection()
+    local notes = state.SelectedHitObjects
+
+    local starttimes = {}
+
+    for _, note in pairs(notes) do
+        if not has(starttimes, note.StartTime) then
+            table.insert(starttimes, note.StartTime)
+        end
+    end
+
+    return(starttimes)
+end
+
+function has(thing, val)
+    for _, value in pairs(thing) do
+        if value == val then
+            return(true)
+        end
+    end
+
+    return(false)
+end
+
 ----------------------------------------------------------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------------------------------------------------------
@@ -280,6 +312,13 @@ function draw()
     if imgui.Button("Clear") then
         destinations = {}
         destinationsstring = ""
+    end
+
+    if imgui.Button("Add Selected Notes to Destinations") then
+        for _, time in pairs(getStartTimesFromSelection()) do
+            table.insert(destinations, time)
+        end
+        destinationsstring = tableToString(destinations)
     end
 
     if imgui.Button("Place Timing Lines") then
